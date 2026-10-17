@@ -4,45 +4,81 @@ import time
 import datetime
 import argparse
 import signal
+import json
 from lib.xAppBase import xAppBase
+from ricxappframe.xapp_frame import rmr
 
 class MyXapp(xAppBase):
     def __init__(self, config, http_server_port, rmr_port):
         super(MyXapp, self).__init__(config, http_server_port, rmr_port)
-        pass
+        self.current_alloc = {1: (10, 30), 2: (20, 40), 3: (5, 15)}
+        self.e2_node_id = None
 
-    # Mark the function as xApp start function using xAppBase.start_function decorator.
-    # It is required to start the internal msg receive loop.
     @xAppBase.start_function
-    def start(self, e2_node_id, ue_id):
+    def start(self, e2_node_id):
+        self.e2_node_id = e2_node_id
+        print("Control xApp listening for KMPs via RMR...")
+        # The main RMR loop is handled by xAppBase._run method which we override
         while self.running:
-            min_prb_ratio = 10
-            max_prb_ratio = 30
-            current_time = datetime.datetime.now()
-            print("{} Send RIC Control Request to E2 node ID: {} for UE ID: {}, PRB_min_ratio: {}, PRB_max_ratio: {}".format(current_time.strftime("%H:%M:%S"), e2_node_id, ue_id, min_prb_ratio, max_prb_ratio))
-            self.e2sm_rc.control_slice_level_prb_quota(e2_node_id, ue_id, min_prb_ratio, max_prb_ratio, dedicated_prb_ratio=100, ack_request=1)
-            time.sleep(5)
+            time.sleep(1)
 
-            min_prb_ratio = 10
-            max_prb_ratio = 50
-            current_time = datetime.datetime.now()
-            print("{} Send RIC Control Request to E2 node ID: {} for UE ID: {}, PRB_min_ratio: {}, PRB_max_ratio: {}".format(current_time.strftime("%H:%M:%S"), e2_node_id, ue_id, min_prb_ratio, max_prb_ratio))
-            self.e2sm_rc.control_slice_level_prb_quota(e2_node_id, ue_id, min_prb_ratio, max_prb_ratio, dedicated_prb_ratio=100, ack_request=1)
-            time.sleep(5)
+    def _run(self):
+        # Override the base _run method to handle KMP messages
+        while self.running:
+            try:
+                sbuf = rmr.rmr_torcv_msg(self.rmr_client, None, 100)
+                summary = rmr.message_summary(sbuf)
+            except Exception as e:
+                continue
 
-            min_prb_ratio = 10
-            max_prb_ratio = 70
-            current_time = datetime.datetime.now()
-            print("{} Send RIC Control Request to E2 node ID: {} for UE ID: {}, PRB_min_ratio: {}, PRB_max_ratio: {}".format(current_time.strftime("%H:%M:%S"), e2_node_id, ue_id, min_prb_ratio, max_prb_ratio))
-            self.e2sm_rc.control_slice_level_prb_quota(e2_node_id, ue_id, min_prb_ratio, max_prb_ratio, dedicated_prb_ratio=100, ack_request=1)
-            time.sleep(5)
+            if summary[rmr.RMR_MS_MSG_STATE] == 0:  # RMR_OK
+                # Check for KMP data message type 60000
+                if summary['message type'] == 60000:
+                    data = rmr.get_payload(sbuf)
+                    try:
+                        kmp_data = json.loads(data.decode('utf-8'))
+                        self.process_kmp_data(kmp_data)
+                    except Exception as e:
+                        print(f"[CONTROL] Error processing KMP data: {e}")
+                
+                # Handle other message types (RIC Control ACK/FAILURE)
+                elif summary['message type'] == 12041:
+                    print("Received RIC_CONTROL_ACK")
+                elif summary['message type'] == 12042:
+                    print("Received RIC_CONTROL_FAILURE")
 
-            min_prb_ratio = 10
-            max_prb_ratio = 100
-            current_time = datetime.datetime.now()
-            print("{} Send RIC Control Request to E2 node ID: {} for UE ID: {}, PRB_min_ratio: {}, PRB_max_ratio: {}".format(current_time.strftime("%H:%M:%S"), e2_node_id, ue_id, min_prb_ratio, max_prb_ratio))
-            self.e2sm_rc.control_slice_level_prb_quota(e2_node_id, ue_id, min_prb_ratio, max_prb_ratio, dedicated_prb_ratio=100, ack_request=1)
-            time.sleep(5)
+            rmr.rmr_free_msg(sbuf)
+
+    def process_kmp_data(self, kmp_data):
+        # Example logic: only increase/decrease, no change if already optimal
+        new_alloc = {}
+        # eMBB
+        sst1 = kmp_data.get('sst1', {})
+        if sst1.get('Throughput_DL', 0) > 1000 and sst1.get('UE_count', 0) > 10:
+            new_alloc[1] = (20, 40)
+        else:
+            new_alloc[1] = (10, 20)
+        # mMTC
+        sst2 = kmp_data.get('sst2', {})
+        if sst2.get('PRACH_SuccessRate', 1) < 0.9 or sst2.get('Paging_SuccessRate', 1) < 0.9:
+            new_alloc[2] = (10, 20)
+        else:
+            new_alloc[2] = (5, 10)
+        # URLLC
+        sst3 = kmp_data.get('sst3', {})
+        if sst3.get('Latency_P99', 0) > 10 or sst3.get('BLER_UL', 0) > 0.05:
+            new_alloc[3] = (15, 30)
+        else:
+            new_alloc[3] = (5, 15)
+        # Only send control if allocation changes
+        for sst, alloc in new_alloc.items():
+            if self.current_alloc.get(sst) != alloc:
+                ue_id = 0
+                print(f"[CONTROL] Changing PRB allocation for SST={sst}: {self.current_alloc.get(sst)} -> {alloc}")
+                self.e2sm_rc.control_slice_level_prb_quota(self.e2_node_id, ue_id, alloc[0], alloc[1], dedicated_prb_ratio=100, ack_request=1)
+                self.current_alloc[sst] = alloc
+            else:
+                print(f"[CONTROL] No change for SST={sst}, allocation remains {alloc}")
 
 
 if __name__ == '__main__':
@@ -56,9 +92,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     config = args.config
-    e2_node_id = args.e2_node_id # TODO: get available E2 nodes from SubMgr, now the id has to be given.
-    ran_func_id = args.ran_func_id # TODO: get available E2 nodes from SubMgr, now the id has to be given.
-    ue_id = args.gnb_cu_ue_f1ap_id
+    e2_node_id = args.e2_node_id
+    ran_func_id = args.ran_func_id
 
     # Create MyXapp.
     myXapp = MyXapp(config, args.http_server_port, args.rmr_port)
@@ -69,5 +104,5 @@ if __name__ == '__main__':
     signal.signal(signal.SIGTERM, myXapp.signal_handler)
     signal.signal(signal.SIGINT, myXapp.signal_handler)
 
-    # Start xApp.
-    myXapp.start(e2_node_id, ue_id)
+    # Start xApp listening for KMPs via RMR
+    myXapp.start(e2_node_id)

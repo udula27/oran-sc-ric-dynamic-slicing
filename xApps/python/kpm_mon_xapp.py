@@ -2,6 +2,7 @@
 
 import argparse
 import signal
+import json
 from lib.xAppBase import xAppBase
 
 
@@ -9,36 +10,87 @@ class MyXapp(xAppBase):
     def __init__(self, config, http_server_port, rmr_port):
         super(MyXapp, self).__init__(config, http_server_port, rmr_port)
 
-    def my_subscription_callback(self, e2_agent_id, subscription_id, indication_hdr, indication_msg, kpm_report_style, ue_id):
-        if kpm_report_style == 2:
-            print("\nRIC Indication Received from {} for Subscription ID: {}, KPM Report Style: {}, UE ID: {}".format(e2_agent_id, subscription_id, kpm_report_style, ue_id))
-        else:
-            print("\nRIC Indication Received from {} for Subscription ID: {}, KPM Report Style: {}".format(e2_agent_id, subscription_id, kpm_report_style))
-
+    def my_subscription_callback(self, e2_agent_id, subscription_id, indication_hdr, indication_msg, kmp_report_style, ue_id):
+        print(f"\nRIC Indication Received from {e2_agent_id} for Subscription ID: {subscription_id}, KMP Report Style: {kmp_report_style}")
         indication_hdr = self.e2sm_kpm.extract_hdr_info(indication_hdr)
         meas_data = self.e2sm_kpm.extract_meas_data(indication_msg)
-
         print("E2SM_KPM RIC Indication Content:")
-        print("-ColletStartTime: ", indication_hdr['colletStartTime'])
-        print("-Measurements Data:")
+        print("-ColletStartTime:", indication_hdr['colletStartTime'])
+        print("-granulPeriod:", meas_data.get("granulPeriod", None))
+        print("DEBUG - Full meas_data structure:", json.dumps(meas_data, indent=2, default=str))
 
-        granulPeriod = meas_data.get("granulPeriod", None)
-        if granulPeriod is not None:
-            print("-granulPeriod: {}".format(granulPeriod))
+        # Define slice metrics
+        slice_metrics = {
+            1: {  # eMBB
+                "name": "eMBB",
+                "minimal": ["Throughput_DL", "Throughput_UL", "PRB_use_DL", "PRB_use_UL", "UE_count", "CQI_avg", "MCS_avg", "BLER_DL", "BLER_UL"],
+                "extended": ["UE_Throughput_P95", "SpectralEfficiency_avg"]
+            },
+            2: {  # URLLC
+                "name": "URLLC",
+                "minimal": ["Throughput_DL", "Throughput_UL", "PRB_use_DL", "PRB_use_UL", "UE_count", "CQI_avg", "MCS_avg", "BLER_DL", "BLER_UL"],
+                "extended": ["Latency_P99", "PacketLoss", "GrantLatency"]
+            },
+            3: {  # mMTC
+                "name": "mMTC",
+                "minimal": ["Throughput_DL", "Throughput_UL", "PRB_use_DL", "PRB_use_UL", "UE_count", "CQI_avg", "MCS_avg", "BLER_DL", "BLER_UL"],
+                "extended": ["PRACH_SuccessRate", "RRC_Setup_SuccessRate", "Paging_SuccessRate"]
+            }
+        }
 
-        if kpm_report_style in [1,2]:
-            for metric_name, value in meas_data["measData"].items():
-                print("--Metric: {}, Value: {}".format(metric_name, value))
+        # Prepare KMPs for control xApp
+        kmp_payload = {}
+        for sst, info in slice_metrics.items():
+            kmp_payload[f'sst{sst}'] = {}
+            for metric in info["minimal"] + info["extended"]:
+                value = None
+                if "measData" in meas_data and metric in meas_data["measData"]:
+                    value = meas_data["measData"][metric]
+                elif "ueMeasData" in meas_data:
+                    for ue_id, ue_meas in meas_data["ueMeasData"].items():
+                        if metric in ue_meas["measData"]:
+                            value = ue_meas["measData"][metric]
+                if value is not None:
+                    kmp_payload[f'sst{sst}'][metric] = value[0] if isinstance(value, list) and value else value
 
-        else:
-            for ue_id, ue_meas_data in meas_data["ueMeasData"].items():
-                print("--UE_id: {}".format(ue_id))
-                granulPeriod = ue_meas_data.get("granulPeriod", None)
-                if granulPeriod is not None:
-                    print("---granulPeriod: {}".format(granulPeriod))
+        # Send KMPs to control xApp via RMR
+        try:
+            payload = json.dumps(kmp_payload).encode('utf-8')
+            # Use message type 60000 for inter-xApp KMP data
+            self.rmr_send("control_xapp", payload, 60000, retries=1)
+            print("[KMP_MON] Sent KMPs to control xApp via RMR.")
+        except Exception as e:
+            print(f"[KMP_MON] Failed to send KMPs to control xApp: {e}")
 
-                for metric_name, value in ue_meas_data["measData"].items():
-                    print("---Metric: {}, Value: {}".format(metric_name, value))
+        # Print metrics grouped by slice
+        for sst, info in slice_metrics.items():
+            print(f"\nSlice SST={sst} ({info['name']}):")
+            print("  Minimal Metrics:")
+            for metric in info["minimal"]:
+                value = None
+                if "measData" in meas_data and metric in meas_data["measData"]:
+                    value = meas_data["measData"][metric]
+                elif "ueMeasData" in meas_data:
+                    for ue_id, ue_meas in meas_data["ueMeasData"].items():
+                        if metric in ue_meas["measData"]:
+                            value = ue_meas["measData"][metric]
+                            print(f"    UE {ue_id}: {metric} = {value}")
+                    continue
+                if value is not None:
+                    print(f"    {metric}: {value}")
+            print("  Extended Metrics:")
+            for metric in info["extended"]:
+                value = None
+                if "measData" in meas_data and metric in meas_data["measData"]:
+                    value = meas_data["measData"][metric]
+                elif "ueMeasData" in meas_data:
+                    for ue_id, ue_meas in meas_data["ueMeasData"].items():
+                        if metric in ue_meas["measData"]:
+                            value = ue_meas["measData"][metric]
+                            print(f"    UE {ue_id}: {metric} = {value}")
+                    continue
+                if value is not None:
+                    print(f"    {metric}: {value}")
 
 
     # Mark the function as xApp start function using xAppBase.start_function decorator.

@@ -154,17 +154,25 @@ class xAppBase(object):
             if summary[rmr.RMR_MS_MSG_STATE] == 0: # RMR_OK
                 # Check if RIC INDICATION message
                 if (summary['message type'] == 12050):
+                    print(f"[DEBUG xAppBase] Received RIC_INDICATION message type=12050")
                     e2_agent_id = str(summary['meid'].decode('utf-8'))
+                    print(f"[DEBUG xAppBase] E2 Agent ID: {e2_agent_id}")
                     data = rmr.get_payload(sbuf)
+                    print(f"[DEBUG xAppBase] Payload size: {len(data)} bytes")
                     try:
                         E2EventInstanceId = summary['subscription id']
+                        print(f"[DEBUG xAppBase] E2EventInstanceId (subscription id): {E2EventInstanceId}")
                         ric_indication = IndicationMsg()
                         ric_indication.decode(data)
+                        print(f"[DEBUG xAppBase] Indication decoded successfully")
                         subscriptionObj = self.my_subscriptions.get(E2EventInstanceId, None)
                         if subscriptionObj is None:
+                            print(f"[DEBUG xAppBase] WARNING: No subscription found for E2EventInstanceId={E2EventInstanceId}")
+                            print(f"[DEBUG xAppBase] Active subscriptions: {list(self.my_subscriptions.keys())}")
                             rmr.rmr_free_msg(sbuf)
                             continue
-
+                        
+                        print(f"[DEBUG xAppBase] Found subscription, calling callback")
                         callback_func =  subscriptionObj.callback_func
                         subscription_id = E2EventInstanceId
                         if callback_func is not None:

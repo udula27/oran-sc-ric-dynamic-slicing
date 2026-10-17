@@ -118,17 +118,13 @@ class e2sm_rc_module(object):
         payload = self._build_ric_control_request(control_header, control_msg, 1)
         self.parent.rmr_send(e2_node_id, payload, 12040, retries=1)
 
-    def send_control_request_style_2_action_6(self, e2_node_id, ue_id, min_prb_ratio, max_prb_ratio, dedicated_prb_ratio, ack_request=1):
-        plmn_string = "00101"
-        sst = 1
-        sd = 1
-
+    def send_control_request_style_2_action_6(self, e2_node_id, ue_id, min_prb_ratio, max_prb_ratio, dedicated_prb_ratio, ack_request=1, sst=1, sd=0, plmn_string="00101"):
         # PLMN encoding
         PLMN = plmn_string_to_bcd(plmn_string)
         PLMN = plmn_to_bytes(PLMN)
         # S-NSSAI encoding
-        sst = sst.to_bytes(1, byteorder='big')
-        sd = sd.to_bytes(3, byteorder='big')
+        sst_bytes = sst.to_bytes(1, byteorder='big')
+        sd_bytes = sd.to_bytes(3, byteorder='big')
 
         # PRB ratio limits, i.e., [0-100]
         min_prb_ratio = max(0, min(min_prb_ratio, 100))
@@ -160,9 +156,9 @@ class e2sm_rc_module(object):
                                                         #>>>>>S-NSSAI, STRUCTURE
                                                         {'ranParameter-ID': 8, 'ranParameter-valueType': ('ranP-Choice-Structure', {'ranParameter-Structure': {'sequence-of-ranParameters': [
                                                                 #>>>>>>SST, ELEMENT
-                                                                {'ranParameter-ID': 9, 'ranParameter-valueType': ('ranP-Choice-ElementFalse', {'ranParameter-value': ('valueOctS', sst)})},
+                                                                {'ranParameter-ID': 9, 'ranParameter-valueType': ('ranP-Choice-ElementFalse', {'ranParameter-value': ('valueOctS', sst_bytes)})},
                                                                 #>>>>>>SD, ELEMENT
-                                                                {'ranParameter-ID': 10, 'ranParameter-valueType': ('ranP-Choice-ElementFalse', {'ranParameter-value': ('valueOctS', sd)})}]
+                                                                {'ranParameter-ID': 10, 'ranParameter-valueType': ('ranP-Choice-ElementFalse', {'ranParameter-value': ('valueOctS', sd_bytes)})}]
                                                             }})}]}})}]}]}})}]}})},
                                             #>>Min PRB Policy Ratio, ELEMENT
                                             {'ranParameter-ID': 11, 'ranParameter-valueType': ('ranP-Choice-ElementFalse', {'ranParameter-value': ('valueInt', min_prb_ratio)})},

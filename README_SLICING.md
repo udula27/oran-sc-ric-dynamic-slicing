@@ -13,6 +13,12 @@ This is a modified fork of [srsran/oran-sc-ric](https://github.com/srsran/oran-s
 - A monitoring dashboard.
 - Testbed scripts and configurations.
 
+## xApp logic
+
+The diagram below summarizes the telemetry inputs, xApp decision logic, and slice-level control loop:
+
+![Dynamic slice allocation xApp logic](Images/MidReview.png)
+
 ## Running with the gNB fork
 
 The matching gNB fork is [udula27/srsRAN_Project_Dynamic_Slicing](https://github.com/udula27/srsRAN_Project_Dynamic_Slicing), using branch `slicing-e2sm-rc` and tag `srsRAN-dynamic-slicing-final`.

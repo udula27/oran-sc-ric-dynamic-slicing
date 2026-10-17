@@ -1,0 +1,71 @@
+# srsRAN Project gNB Configuration with ZMQ RF and E2 Agent
+# Compatible with Open5GS 5GC and ORAN-SC RIC
+
+cu_cp:
+  amf:
+    addr: 10.53.1.2                 # Open5GS AMF address
+    port: 38412                     # NGAP port
+    bind_addr: 10.53.1.1            # Local gNB binding address  
+    supported_tracking_areas:
+      - tac: 7                      # Tracking Area Code (matches core config)
+        plmn_list:
+          - plmn: "00101"           # PLMN ID (MCC=001, MNC=01)
+            tai_slice_support_list:
+              - sst: 1              # eMBB - Enhanced Mobile Broadband
+  inactivity_timer: 7200            # UE/PDU Session inactivity timer (7200 seconds)
+
+ru_sdr:
+  device_driver: zmq                # ZMQ RF driver for testing
+  device_args: tx_port=tcp://127.0.0.1:2000,rx_port=tcp://127.0.0.1:2001,base_srate=23.04e6 # Band 78 with 30kHz SCS requires 23.04 MHz sample rate
+  srate: 23.04                      # RF sample rate for Band 78
+  tx_gain: 75                       # Transmit gain
+  rx_gain: 75                       # Receive gain
+
+cell_cfg:
+  dl_arfcn: 632628                  # ARFCN of the downlink carrier (center frequency) - Band 78 (3.5 GHz)
+  band: 78                          # NR band 78 (3.5 GHz)
+  channel_bandwidth_MHz: 20         # 20 MHz bandwidth for better slice performance
+  common_scs: 30                    # Subcarrier spacing in kHz (30 kHz for band 78)
+  plmn: "00101"                     # PLMN ID matching core configuration
+  tac: 7                            # Tracking Area Code (matches Open5GS AMF config)
+  pci: 1                            # Physical Cell ID
+  
+  # Simplified slice configuration compatible with srsRAN
+  slicing:
+    - sst: 1                        # eMBB slice
+      sd: 1
+    - sst: 2                        # mMTC slice  
+      sd: 2
+    - sst: 3                        # URLLC slice
+      sd: 3
+  
+  # Physical layer configuration - using supported parameters only
+  pdsch:
+    mcs_table: qam64                # 64-QAM for high throughput (eMBB)
+    max_rank: 1                     # Single antenna configuration
+  pusch:
+    mcs_table: qam64                # 64-QAM uplink modulation
+
+e2:
+  enable_du_e2: true                # Enable E2 agent
+  addr: 127.0.0.1                  # RIC E2 termination address (via port mapping)
+  port: 36421                       # E2AP SCTP port
+
+log:
+  filename: /tmp/gnb.log            # Path of the log file.
+  all_level: info                   # Logging level applied to all layers.
+  hex_max_size: 0
+
+pcap:
+  mac_enable: false                 # Set to true to enable MAC-layer PCAPs.
+  mac_filename: /tmp/gnb_mac.pcap   # Path where the MAC PCAP is stored.
+  ngap_enable: false                # Set to true to enable NGAP PCAPs.
+  ngap_filename: /tmp/gnb_ngap.pcap # Path where the NGAP PCAP is stored.
+  e2ap_enable: true                 # Set to true to enable E2AP PCAPs.
+  e2ap_du_filename: /tmp/gnb_du_e2ap.pcap       # Path where the DU E2AP PCAP is stored.
+  e2ap_cu_cp_filename: /tmp/gnb_cu_cp_e2ap.pcap # Path where the CU-CP E2AP PCAP is stored.
+  e2ap_cu_up_filename: /tmp/gnb_cu_up_e2ap.pcap # Path where the CU-UP E2AP PCAP is stored.
+
+metrics:
+  autostart_stdout_metrics: true    # Enable metrics output for slice monitoring
+  enable_json: true                 # JSON format for easier parsing by xApps

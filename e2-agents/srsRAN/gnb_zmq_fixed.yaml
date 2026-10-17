@@ -1,0 +1,132 @@
+# srsRAN Project gNB Configuration for Multi-Slice 5G Network with ZMQ RF simulation
+# Compatible with Open5GS multi-slice 5GC and ORAN-SC RIC E2 agent integration
+# This configuration enables three network slices: eMBB (SST=1), mMTC (SST=2), URLLC (SST=3)
+
+# E2 Agent Configuration for ORAN-SC RIC Integration
+e2:
+  enable_du_e2: true                # Enable DU E2 agent
+  enable_cu_cp_e2: true             # Enable CU-CP E2 agent  
+  enable_cu_up_e2: true             # Enable CU-UP E2 agent
+  e2sm_kmp_enabled: true            # Enable KPM service module
+  e2sm_rc_enabled: true             # Enable RC service module
+  addr: 172.18.0.10                 # RIC E2 termination address
+  bind_addr: 172.18.0.1             # Local E2 agent binding address  
+  port: 38000                       # RIC E2 termination port
+
+cu_cp:
+  amf:
+    addr: 10.53.1.2                 # Open5GS AMF address
+    port: 38412                     # NGAP port
+    bind_addr: 10.53.1.1            # Local gNB binding address  
+    supported_tracking_areas:
+      - tac: 7
+        plmn_list:
+          - plmn: "00101"
+            tai_slice_support_list:
+              - sst: 1              # eMBB slice
+              - sst: 2              # mMTC slice  
+              - sst: 3              # URLLC slice
+
+  # Multi-slice resource allocation
+  slice_cfg:
+    - sst: 1                        # eMBB slice configuration
+      sd: "000001"
+      resource_allocation:
+        prb_ratio_dl: 50            # 50% DL resources for eMBB
+        prb_ratio_ul: 40            # 40% UL resources for eMBB
+        
+    - sst: 2                        # mMTC slice configuration  
+      sd: "000002"
+      resource_allocation:
+        prb_ratio_dl: 20            # 20% DL resources for mMTC
+        prb_ratio_ul: 30            # 30% UL resources for mMTC
+        
+    - sst: 3                        # URLLC slice configuration
+      sd: "000003" 
+      resource_allocation:
+        prb_ratio_dl: 30            # 30% DL resources for URLLC
+        prb_ratio_ul: 30            # 30% UL resources for URLLC
+        priority: 1                 # Highest priority for URLLC
+
+ru_sdr:
+  device_driver: zmq               # ZMQ-based RF simulation
+  device_args: tx_port=tcp://127.0.0.1:2000,rx_port=tcp://127.0.0.1:2001,id=0,base_srate=23.04e6
+  srate: 23.04                     # 23.04 MHz sample rate for 20 MHz bandwidth
+  tx_gain: 60                      # Transmission gain
+  rx_gain: 60                      # Reception gain
+
+cell_cfg:
+  dl_arfcn: 632628                 # Band 78 (3.5 GHz) downlink ARFCN
+  band: 78                         # 5G NR Band 78 (3.3-3.8 GHz) 
+  channel_bandwidth_MHz: 20        # 20 MHz channel bandwidth
+  common_scs: 30                   # 30 kHz subcarrier spacing for sub-6 GHz
+  plmn: "00101"                    # PLMN ID matching OpenAirInterface SIMs
+  tac: 7                           # Tracking Area Code
+  pci: 1                           # Physical Cell ID
+  nof_antennas_dl: 1               # Single antenna downlink
+  nof_antennas_ul: 1               # Single antenna uplink
+  
+  # Multi-slice scheduling configuration
+  pdcch_cfg:
+    dedicated:
+      ss_pbch_block_power: -25     # SSB power for coverage
+      
+  pdsch_cfg:
+    mcs_table: qam256              # 256-QAM support for eMBB high throughput
+    max_nof_harq_retxs: 4          # HARQ retransmissions
+    
+  pusch_cfg:
+    mcs_table: qam64               # 64-QAM uplink modulation
+    max_nof_harq_retxs: 4          # HARQ retransmissions
+    
+  pucch_cfg:
+    max_nof_harq_retxs: 4          # PUCCH HARQ feedback
+
+# Quality of Service (QoS) Configuration for Multi-Slice Support  
+qos:
+  # eMBB slice QoS (SST=1): High throughput, moderate latency
+  - five_qi: 9                     # Non-GBR video/data
+    priority_level: 8
+    packet_delay_budget_ms: 300
+    packet_error_loss_rate: 1e-6
+    slice_id: 1
+    
+  # mMTC slice QoS (SST=2): Low power, massive connectivity  
+  - five_qi: 8                     # Non-GBR IoT data
+    priority_level: 9
+    packet_delay_budget_ms: 1000   # Relaxed latency for IoT
+    packet_error_loss_rate: 1e-5
+    slice_id: 2
+    
+  # URLLC slice QoS (SST=3): Ultra-low latency, high reliability
+  - five_qi: 1                     # GBR conversational voice/video
+    priority_level: 2              # Highest priority
+    packet_delay_budget_ms: 10     # 10ms latency budget
+    packet_error_loss_rate: 1e-9   # Extremely low error rate
+    slice_id: 3
+
+log:
+  filename: /tmp/gnb_multi_slice.log
+  all_level: info                  # Info level logging for debugging
+  hex_max_size: 32
+  
+pcap:
+  mac_enable: true                 # Enable MAC layer packet capture
+  mac_filename: /tmp/gnb_mac_multi_slice.pcap
+  ngap_enable: true                # Enable NGAP packet capture  
+  ngap_filename: /tmp/gnb_ngap_multi_slice.pcap
+  
+metrics:
+  enable_json_metrics: true        # Enable JSON metrics for monitoring
+  addr: 127.0.0.1                 # Metrics server address
+  port: 55555                     # Metrics server port
+  
+  # Slice-specific metrics configuration
+  json_metrics:
+    - metric_name: "slice_throughput"
+      slice_filter: [1, 2, 3]     # Monitor all slices
+      report_period_ms: 1000       # 1-second reporting
+      
+    - metric_name: "slice_latency"  
+      slice_filter: [3]            # Focus on URLLC latency
+      report_period_ms: 100        # 100ms reporting for URLLC

@@ -1,0 +1,135 @@
+# Slice Management xApp Configuration
+# Defines slice-specific parameters and SLA requirements
+
+slice_configurations:
+  eMBB:
+    sst: 1
+    sd: 1
+    name: "Enhanced Mobile Broadband"
+    priority: 2
+    sla_requirements:
+      min_throughput_dl_mbps: 50
+      min_throughput_ul_mbps: 25
+      max_latency_ms: 20
+      min_spectral_efficiency: 3.0
+      max_block_error_rate: 0.1
+      target_user_experience_kbps: 10000
+    
+    resource_allocation:
+      min_prb_percentage: 20
+      max_prb_percentage: 70
+      default_prb_percentage: 40
+      adjustment_step: 5
+      burst_allowance: 1.2
+    
+    kpi_metrics:
+      - "DRB.UEThpDl"          # Downlink throughput per UE
+      - "DRB.UEThpUl"          # Uplink throughput per UE  
+      - "QosFlow.UEThpDl"      # QoS flow downlink throughput
+      - "QosFlow.UEThpUl"      # QoS flow uplink throughput
+      - "RRU.PrbUsedDl"        # Downlink PRB usage
+      - "RRU.PrbUsedUl"        # Uplink PRB usage
+      - "DRB.PacketDelayDl"    # Downlink packet delay
+      - "PDCP.VolDl"           # PDCP downlink volume
+      - "PDCP.VolUl"           # PDCP uplink volume
+
+  mMTC:
+    sst: 2
+    sd: 2
+    name: "Massive Machine Type Communications"
+    priority: 3
+    sla_requirements:
+      max_connection_density: 1000000  # devices per km²
+      min_connection_success_rate: 0.99
+      max_connection_setup_time_s: 10
+      min_battery_efficiency: 0.95
+      max_signaling_overhead: 0.1
+      
+    resource_allocation:
+      min_prb_percentage: 5
+      max_prb_percentage: 30
+      default_prb_percentage: 15
+      adjustment_step: 3
+      burst_allowance: 1.1
+      
+    kpi_metrics:
+      - "RRC.ConnEstabAtt"       # RRC connection establishment attempts
+      - "RRC.ConnEstabSucc"      # RRC connection establishment successes
+      - "PRACH.DetAttempts"      # PRACH detection attempts
+      - "PRACH.DetSucc"          # PRACH detection successes
+      - "QosFlow.UEThpDl"        # QoS flow downlink throughput
+      - "QosFlow.UEThpUl"        # QoS flow uplink throughput
+      - "RRU.PrbUsedDl"          # Downlink PRB usage
+      - "RRU.PrbUsedUl"          # Uplink PRB usage
+      - "MAC.SchedulingLatency"   # MAC scheduling latency
+
+  URLLC:
+    sst: 3
+    sd: 3
+    name: "Ultra-Reliable Low-Latency Communications"
+    priority: 1  # Highest priority
+    sla_requirements:
+      max_latency_ms: 1.0
+      min_reliability: 0.99999    # 99.999%
+      max_packet_loss_rate: 0.00001
+      max_jitter_ms: 0.5
+      max_interruption_time_ms: 0
+      
+    resource_allocation:
+      min_prb_percentage: 10
+      max_prb_percentage: 50
+      default_prb_percentage: 25
+      adjustment_step: 5
+      burst_allowance: 1.3        # Higher burst for critical apps
+      guaranteed_allocation: true  # Always guarantee minimum
+      
+    kpi_metrics:
+      - "DRB.PacketDelayDl"      # Downlink packet delay (critical)
+      - "DRB.PacketDelayUl"      # Uplink packet delay (critical)
+      - "DRB.PacketLossRateDl"   # Downlink packet loss rate
+      - "DRB.PacketLossRateUl"   # Uplink packet loss rate
+      - "QosFlow.UEThpDl"        # QoS flow downlink throughput
+      - "QosFlow.UEThpUl"        # QoS flow uplink throughput
+      - "MAC.SchedulingLatency"   # MAC scheduling latency
+      - "PHY.Retransmissions"     # PHY layer retransmissions
+      - "RLC.Retransmissions"     # RLC layer retransmissions
+
+# Global configuration
+global_config:
+  total_prb_pool: 100
+  allocation_interval_seconds: 5
+  monitoring_interval_seconds: 1
+  sla_violation_threshold: 3
+  trend_analysis_window: 60
+  
+  # Emergency thresholds
+  emergency_thresholds:
+    urllc_latency_critical_ms: 2.0
+    embb_throughput_critical_mbps: 10
+    mmtc_success_rate_critical: 0.95
+    
+  # Resource allocation constraints
+  allocation_constraints:
+    min_total_reserved: 40      # Always keep 40% reserved
+    max_single_slice: 70        # No slice can exceed 70%
+    reallocation_hysteresis: 2  # Prevent oscillations
+
+# Monitoring and alerting
+monitoring:
+  metrics_retention_minutes: 60
+  alert_thresholds:
+    sla_violation_count: 5
+    consecutive_violations: 3
+    performance_degradation: 0.2
+    
+  reporting:
+    summary_interval_minutes: 5
+    detailed_report_interval_minutes: 15
+    export_metrics: true
+    
+# Machine learning and prediction (future enhancement)
+ml_config:
+  enable_prediction: false
+  prediction_window_minutes: 10
+  training_data_days: 7
+  model_update_hours: 24

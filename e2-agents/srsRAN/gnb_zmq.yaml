@@ -1,88 +1,151 @@
-# This configuration file example shows how to configure the srsRAN Project gNB to allow srsUE to connect to it. 
-# This specific example uses ZMQ in place of a USRP for the RF-frontend, and creates an FDD cell with 10 MHz bandwidth. 
-# To run the srsRAN Project gNB with this config, use the following command: 
-#   sudo ./gnb -c gnb_zmq.yaml
+# srsRAN Project gNB Configuration with ZMQ RF and E2 Agent
+# Compatible with Open5GS 5GC and ORAN-SC RIC
 
 cu_cp:
   amf:
-    addr: 10.53.1.2                 # The address or hostname of the AMF.
+    addr: 10.53.1.2                # Open5GS AMF address
     port: 38412
-    bind_addr: 10.53.1.1            # A local IP that the gNB binds to for traffic from the AMF.
+    bind_addr: 10.53.1.1
     supported_tracking_areas:
       - tac: 7
         plmn_list:
           - plmn: "00101"
             tai_slice_support_list:
               - sst: 1
-  inactivity_timer: 7200            # Sets the UE/PDU Session/DRB inactivity timer to 7200 seconds. Supported: [1 - 7200].
 
 ru_sdr:
-  device_driver: zmq                # The RF driver name.
-  device_args: tx_port=tcp://127.0.0.1:2000,rx_port=tcp://127.0.0.1:2001,base_srate=11.52e6 # Optionally pass arguments to the selected RF driver.
-  srate: 11.52                      # RF sample rate might need to be adjusted according to selected bandwidth.
-  tx_gain: 75                       # Transmit gain of the RF might need to adjusted to the given situation.
-  rx_gain: 75                       # Receive gain of the RF might need to adjusted to the given situation.
+  device_driver: zmq               # ZMQ RF simulation
+  device_args: tx_port=tcp://127.0.0.1:2000,rx_port=tcp://127.0.0.1:2001,base_srate=23.04e6
+  srate: 23.04
+  tx_gain: 60
+  rx_gain: 60
 
 cell_cfg:
-  dl_arfcn: 368500                  # ARFCN of the downlink carrier (center frequency).
-  band: 3                           # The NR band.
-  channel_bandwidth_MHz: 10         # Bandwith in MHz. Number of PRBs will be automatically derived.
-  common_scs: 15                    # Subcarrier spacing in kHz used for data.
-  plmn: "00101"                     # PLMN broadcasted by the gNB.
-  tac: 7                            # Tracking area code (needs to match the core configuration).
+  dl_arfcn: 368500                  # Band 3 (1800 MHz) 
+  band: 3
+  channel_bandwidth_MHz: 10         # 10 MHz bandwidth
+  common_scs: 15                    # 15 kHz subcarrier spacing
+  plmn: "00101"
+  tac: 7
+  pci: 1
+
+e2:
+  enable_du_e2: true               # Enable E2 agent
+  addr: 127.0.0.1                 # RIC E2 termination address (localhost)
+  port: 36421                      # E2AP SCTP port
+
+log:
+  filename: /tmp/gnb.log
+  all_level: info
+
+pcap:
+  mac_enable: false
+  mac_filename: /tmp/gnb_mac.pcap
+  ngap_enable: false
+  ngap_filename: /tmp/gnb_ngap.pcap
+
+cu_cp:
+  amf:
+    addr: 10.53.1.2          # AMF NGAP IP (from your 5gc compose)
+    port: 38412
+    bind_addr: 10.53.1.3     # gNB IP (from your gNB container on 'ran' network)
+  supported_tracking_areas:
+    - tac: 7
+      plmn_list:
+        - plmn: "00101"
+          tai_slice_support_list:
+            - sst: 1         # eMBB
+            - sst: 2         # mMTC
+            - sst: 3         # URLLC
+  inactivity_timer: 7200
+
+ru_sdr:
+  device_driver: zmq
+  device_args: tx_port=tcp://127.0.0.1:2000,rx_port=tcp://127.0.0.1:2001,base_srate=23.04e6
+  srate: 23.04
+  tx_gain: 75
+  rx_gain: 75
+
+cell_cfg:
+  dl_arfcn: 368500
+  band: 3
+  channel_bandwidth_MHz: 20
+  common_scs: 15
+  plmn: "00101"
+  tac: 7
+  pci: 1
+
+  # -------- RAN slice PRB policy (supported by srsRAN) ----------
+  slicing:
+    - sst: 1
+      sched_cfg:
+        min_prb_policy_ratio: 30   # guarantee >=30% PRBs for eMBB
+        max_prb_policy_ratio: 60   # cap <=60%
+    - sst: 2
+      sched_cfg:
+        min_prb_policy_ratio: 5    # small guaranteed share for mMTC
+        max_prb_policy_ratio: 25
+    - sst: 3
+      sched_cfg:
+        min_prb_policy_ratio: 20   # guaranteed share for URLLC
+        max_prb_policy_ratio: 50   # allow up to half if needed
+
+  # PHY/MAC settings compatible with srsUE / typical lab setup
   pdcch:
     common:
-      ss0_index: 0                  # Set search space zero index to match srsUE capabilities
-      coreset0_index: 6             # Set search CORESET Zero index to match srsUE capabilities
+      ss0_index: 0
+      coreset0_index: 12
     dedicated:
-      ss2_type: common              # Search Space type, has to be set to common
-      dci_format_0_1_and_1_1: false # Set correct DCI format (fallback)
+      ss2_type: common
+      dci_format_0_1_and_1_1: false
   prach:
-    prach_config_index: 1           # Sets PRACH config to match what is expected by srsUE
+    prach_config_index: 1
   pdsch:
     mcs_table: qam64
   pusch:
     mcs_table: qam64
 
+# -------- E2 Agent (Near-RT RIC) ----------
+# If RIC runs on the SAME HOST and e2term is published as "36421:36421/sctp" in docker-compose,
+# set addr to the HOST IP (not 127.0.0.1 from inside the gNB container).
+# Example: addr: 192.168.x.y  (your host’s IP), port: 36421
+e2:
+  enable_du_e2: true
+  enable_cu_cp_e2: true
+  enable_cu_up_e2: true
+  e2sm_kpm_enabled: true
+  e2sm_rc_enabled: true
+  addr: 192.168.0.10          # <<< CHANGE THIS to your HOST IP where RIC published 36421
+  bind_addr: 10.53.1.3        # source IP of the gNB (container) for SCTP towards RIC
+  port: 36421
+
 log:
-  filename: /tmp/gnb.log            # Path of the log file.
-  all_level: info                   # Logging level applied to all layers.
+  filename: /tmp/gnb.log
+  all_level: info
   hex_max_size: 0
 
 pcap:
-  mac_enable: false                 # Set to true to enable MAC-layer PCAPs.
-  mac_filename: /tmp/gnb_mac.pcap   # Path where the MAC PCAP is stored.
-  ngap_enable: false                # Set to true to enable NGAP PCAPs.
-  ngap_filename: /tmp/gnb_ngap.pcap # Path where the NGAP PCAP is stored.
-  e2ap_enable: true                 # Set to true to enable E2AP PCAPs.
-  e2ap_du_filename: /tmp/gnb_du_e2ap.pcap       # Path where the DU E2AP PCAP is stored.
-  e2ap_cu_cp_filename: /tmp/gnb_cu_cp_e2ap.pcap # Path where the CU-CP E2AP PCAP is stored.
-  e2ap_cu_up_filename: /tmp/gnb_cu_up_e2ap.pcap # Path where the CU-UP E2AP PCAP is stored.
-
-e2:
-  enable_du_e2: true                # Enable DU E2 agent (one for each DU instance)
-  enable_cu_cp_e2: true             # Enables the CU E2 agent for CU-CP
-  enable_cu_up_e2: true             # Enables the CU E2 agent for CU-UP
-  e2sm_kpm_enabled: true            # Enable KPM service module
-  e2sm_rc_enabled: true             # Enable RC service module
-  addr: 10.0.2.10                   # RIC IP address
-  bind_addr: 10.0.2.1               # A local IP that the E2 agent binds to for traffic from the RIC. ONLY required if running the RIC on a separate machine. 
-  port: 36421                       # RIC port
+  mac_enable: false
+  mac_filename: /tmp/gnb_mac.pcap
+  ngap_enable: false
+  ngap_filename: /tmp/gnb_ngap.pcap
+  e2ap_enable: true
+  e2ap_du_filename: /tmp/gnb_du_e2ap.pcap
+  e2ap_cu_cp_filename: /tmp/gnb_cu_cp_e2ap.pcap
+  e2ap_cu_up_filename: /tmp/gnb_cu_up_e2ap.pcap
 
 metrics:
-  autostart_stdout_metrics: false
-  enable_log: false
-  enable_json: false
-
+  autostart_stdout_metrics: true
+  enable_log: true
+  enable_json: true
   periodicity:
     du_report_period: 1000
     cu_up_report_period: 1000
     cu_cp_report_period: 1000
-
   layers:
     enable_ru: false
     enable_sched: true
     enable_rlc: true
     enable_mac: true
-    enable_pdcp: false
+    enable_pdcp: true
     enable_du_low: false

@@ -1,0 +1,25 @@
+{
+  "name": "intelligent-slice-mgmt-xapp",
+  "version": "1.0.0",
+  "vendor": "srsRAN",
+  "description": "Intelligent Slice Management xApp for dynamic PRB allocation",
+  "controls": {
+    "logger": {
+      "level": 2
+    }
+  },
+  "messaging": {
+    "ports": [
+      {
+        "name": "http",
+        "port": 8094,
+        "description": "http service"
+      },
+      {
+        "name": "rmrdata",
+        "port": 4564,
+        "description": "rmr data port"
+      }
+    ]
+  }
+}

@@ -1,0 +1,58 @@
+newrt|start
+# RMR Static Routing Table for E2 Messages
+# Format: rte|<message_type>|<target_service>:<port>
+
+# E2AP Messages - Route to E2Term
+mse|10060|10|10.0.2.10:38000
+mse|10061|-1|10.0.2.10:38000
+mse|10062|-1|10.0.2.10:38000
+mse|10063|-1|10.0.2.10:38000
+mse|10064|-1|10.0.2.10:38000
+mse|10065|-1|10.0.2.10:38000
+
+# E2 Setup Messages
+mse|12010|5|10.0.2.11:4560
+mse|12012|-1|10.0.2.10:38000
+
+# E2 Subscription Messages - Route to SubMgr
+rte|12011|10.0.2.11:4560
+rte|12012|10.0.2.11:4560
+rte|12020|10.0.2.11:4560
+
+# RIC Indication Messages - Route to xApp (python_xapp_runner)
+# THIS IS THE CRITICAL ROUTE THAT WAS MISSING
+rte|12050|python_xapp_runner:4563
+
+# RIC Control Messages
+rte|12040|10.0.2.10:38000
+rte|12041|10.0.2.11:4560
+
+# Additional E2 Messages
+rte|12001|10.0.2.10:38000
+rte|12002|10.0.2.11:4560
+rte|12003|10.0.2.10:38000
+rte|12004|10.0.2.11:4560
+rte|12005|10.0.2.10:38000
+rte|12006|10.0.2.11:4560
+rte|12007|10.0.2.10:38000
+rte|12008|10.0.2.10:38000
+rte|12009|10.0.2.11:4560
+
+# E2 Service Update
+rte|12030|10.0.2.10:38000
+rte|12031|10.0.2.11:4560
+
+# E2 Reset
+rte|12070|10.0.2.10:38000
+rte|12071|10.0.2.11:4560
+
+# E2 Node Configuration Update  
+rte|12080|10.0.2.10:38000
+rte|12081|10.0.2.11:4560
+
+# E2 Connection Update
+rte|12090|10.0.2.10:38000
+rte|12091|10.0.2.11:4560
+
+# Default route
+newrt|end

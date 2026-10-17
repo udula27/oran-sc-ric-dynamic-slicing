@@ -1,0 +1,45 @@
+# srsRAN Project gNB Configuration with ZMQ RF simulation for Multi-Slice 5G Network
+# Compatible with Open5GS multi-slice 5G Core Network  
+# Supports OpenAirInterface SIM cards with PLMN 00101
+
+cu_cp:
+  amf:
+    addr: 10.53.1.2                 # Open5GS AMF address
+    port: 38412                     # NGAP port
+    bind_addr: 10.53.1.1            # Local gNB binding address  
+    supported_tracking_areas:
+      - tac: 7
+        plmn_list:
+          - plmn: "00101"           # PLMN matching OpenAirInterface SIM cards
+            tai_slice_support_list:
+              - sst: 1              # eMBB slice support
+              - sst: 2              # mMTC slice support  
+              - sst: 3              # URLLC slice support
+
+ru_sdr:
+  device_driver: zmq               # ZMQ-based RF simulation
+  device_args: tx_port=tcp://127.0.0.1:2000,rx_port=tcp://127.0.0.1:2001,id=0,base_srate=23.04e6
+  srate: 23.04                     # 23.04 MHz sample rate for 20 MHz bandwidth
+  tx_gain: 60                      # Transmission gain
+  rx_gain: 60                      # Reception gain
+
+cell_cfg:
+  dl_arfcn: 632628                 # Band 78 (3.5 GHz) downlink ARFCN
+  band: 78                         # 5G NR Band 78 (3.3-3.8 GHz) 
+  channel_bandwidth_MHz: 20        # 20 MHz channel bandwidth
+  common_scs: 30                   # 30 kHz subcarrier spacing
+  plmn: "00101"                    # PLMN ID matching OpenAirInterface SIMs
+  tac: 7                           # Tracking Area Code
+  pci: 1                           # Physical Cell ID
+  nof_antennas_dl: 1               # Single antenna downlink
+  nof_antennas_ul: 1               # Single antenna uplink
+
+log:
+  filename: /tmp/gnb_multi_slice.log
+  all_level: info                  # Info level logging
+
+pcap:
+  mac_enable: false                # Disable MAC PCAP for performance
+  mac_filename: /tmp/gnb_mac.pcap
+  ngap_enable: false               # Disable NGAP PCAP for performance  
+  ngap_filename: /tmp/gnb_ngap.pcap

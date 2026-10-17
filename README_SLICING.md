@@ -65,12 +65,6 @@ The graph-based policy is implemented by `xApps/python/test_xapp_3.py`. Slice or
 | Donor utilization threshold | `0.5` | Donor must be below this utilization to lend |
 | `beta` | `0.5` | Quota smoothing factor |
 | EMA old/new weights | `0.7` / `0.3` | Previous and proposed quota weights |
-| `delta_max` | TODO | No value found |
-| `eta` | TODO | No value found |
-
-## Data availability
-
-TODO: Add a dataset link. Experiment CSVs are not included in this repository.
 
 ## Diff from upstream
 

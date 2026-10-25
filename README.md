@@ -1,3 +1,13 @@
+# oran-sc-ric with a Dynamic Slice-Level PRB Allocation xApp
+
+This fork adds a dynamic slice-level PRB allocation xApp and dashboard on top of the O-RAN SC near-RT RIC (base commit e44a7ce). It works with the gNB fork at https://github.com/udula27/srsRAN_Project_Dynamic_Slicing.
+
+**Start here:** [README_SLICING.md](README_SLICING.md) has the full startup sequence for the closed-loop testbed.
+
+Order: 5G core, then this RIC (`docker compose up -d`), then the gNB, then the xApp and dashboard, and finally the physical UEs.
+
+---
+
 # ORAN SC RIC in Docker
 
 This repository provides a minimal version of the **O-RAN Software Community (SC) Near-Real-time RIC** (`i-release`). It includes configuration files that enable the building and deploying of the SC RIC as a multi-container application using a single Docker command, without Kubernetes or Helm. Additionally, the repository features example monitoring and control xApps, which use the  ``E2SM_KPM`` and  ``E2SM_RC`` service modules, respectively.
